@@ -31,3 +31,5 @@ CREATE TABLE employee (
     REFERENCES employee(id)
     ON DELETE SET NULL
 );
+
+SOURCE db/seeds.sql;
