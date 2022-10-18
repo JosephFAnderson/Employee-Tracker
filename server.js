@@ -42,23 +42,29 @@ const getChoice = () => {
                     });                    
                     break;
                 case 'View All Roles':
-                    db.query('SELECT role.title, role.id, department.name, role.salary FROM role JOIN department ON role.department_id = department.id ORDER BY role.title ASC', function(err, results) {
+                    db.query('SELECT role.title, role.id, department.name AS department, role.salary FROM role INNER JOIN department ON role.department_id = department.id ORDER BY role.title ASC', function(err, results) {
                         console.table('\n', results);
                         getChoice();
                     });
                     break;
-                case 'Add Role':
-                    addRole();
+                case 'View All Employees':
+                    db.query('SELECT a.id, a.first_name, a.last_name, role.title, department.name AS department, role.salary, CONCAT(b.first_name, " ", b.last_name) AS manager FROM employee a INNER JOIN role ON a.role_id = role.id INNER JOIN department ON role.department_id = department.id LEFT JOIN employee b ON b.id = a.manager_id ORDER BY a.last_name ASC', function(err, results){
+                        console.table('\n', results);
+                        getChoice();
+                    });
                     break;
                 case 'Add Department':
                     addDepartment();
                     break;
-                case 'View All Employees':
-                    db.query('SELECT employee.first_name, employee.last_name, role.title, department.name, role.salary, employee.manager_id FROM employee JOIN role ON employee.role_id = role.id JOIN department ON role.department_id = department.id ORDER BY employee.last_name ASC', function(err, results){
-                        console.table('\n', results);
-                        getChoice();
-                    });
+                case 'Add Role':
+                    addRole();
+                    break;                
+                case 'Add Employee':
+                    addEmployee();
                     break;
+                case 'Update Employee Role':
+                    updateEmployeeRole();
+                    break;                
                 default:
                     getChoice();
                     break;
@@ -82,11 +88,11 @@ const addDepartment = () => {
             }
         ])
         .then(ans => {
-            db.query(`INSERT INTO department (name) VALUES ('${ans.name}')`, function (err, results) {
+            db.query(`INSERT INTO department (name) VALUES (?)`, ans.name, function (err, results) {
                 getChoice();
             });
         })
-}
+};
 
 const addRole = () => {
     const departments = [];
@@ -125,20 +131,87 @@ const addRole = () => {
             }
         ])
         .then(ans => {
-            let id;
+            let department_id;
             results.forEach(department => {
                 if(department.name === ans.department){
-                    id = parseInt(department.id);
+                    department_id = parseInt(department.id);
                 }
             })
             let salary = parseInt(ans.salary);
 
-            db.query(`INSERT INTO role (title, salary, department_id) VALUES ('${ans.title}', ${salary}, ${id})`, function (err,results) {
+            db.query(`INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)`, [ans.title, salary, department_id], function (err,results) {
                 getChoice();
             });
         })
     })    
-}
+};
+
+const addEmployee = () => {
+    const rolesArray = [];
+    const employees = ['None'];
+    db.query('SELECT * FROM employee', (err, result) => {
+        result.forEach(employee => employees.push(`${employee.first_name} ${employee.last_name}`));
+        db.query('SELECT * FROM role', function (err, res) {
+            res.forEach(role => rolesArray.push(role.title));
+            inquirer
+                .prompt([
+                    {
+                        name: 'first_name',
+                        message: 'What is their first name?',
+                        type: 'input',
+                        validate: (input) => {
+                            if(input === ""){
+                            return 'Please enter a name.'
+                        }
+                        return true;
+                        }
+                    },
+                    {
+                        name: 'last_name',
+                        message: 'What is their last name?',
+                        type: 'input',
+                        validate: (input) => {
+                            if(input === ""){
+                                return 'Please enter a name.'
+                            }
+                            return true;
+                        }
+                    },
+                    {
+                        name: 'roles',
+                        message: 'What role are they in?',
+                        type: 'list',
+                        choices: rolesArray
+                    },
+                    {
+                        name: 'manager',
+                        message: 'Who is their manager?',
+                        type: 'list',
+                        choices: employees
+                    }
+                ])
+                .then(ans => {
+                    const {first_name, last_name, roles, manager} = ans;
+                    let role_id;
+                    res.forEach(role => {
+                        if(role.title === roles){
+                            role_id = parseInt(role.id);
+                        }
+                    })
+                    let manager_id;
+                    result.forEach(employee => {
+                        if(`${employee.first_name} ${employee.last_name}` === manager){
+                            manager_id = parseInt(employee.id);
+                        }
+                    })
+                    db.query('INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)', [first_name, last_name, role_id, manager_id], (err, results) => {
+                        console.log(`Added ${first_name} ${last_name} to database`);
+                        getChoice();
+                    })
+                })
+        });
+    });    
+};
 
 app.use((req, res) => res.status(404).end());
 app.listen(PORT);

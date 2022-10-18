@@ -33,3 +33,5 @@ CREATE TABLE employee (
 );
 
 SOURCE db/seeds.sql;
+
+SELECT CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee;
