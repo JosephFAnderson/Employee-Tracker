@@ -1,5 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2');
+const inquirer = require('inquirer');
+const cTable = require('console.table');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 4001;
@@ -18,20 +20,126 @@ const db = mysql.createConnection(
     console.log('Coonected to the employee_tracker_db database.')
 );
 
-// Query to display all departments
-db.query('SELECT * FROM department', function (err, results) {
-    console.log(results);
-})
+const getChoice = () => {
+    inquirer
+        .prompt([
+            {
+                name: 'choice',
+                type: 'list',
+                message: 'What would you like to do?',
+                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Quit']
+            }
+        ])
+        .then(ans => {
+            switch(ans.choice){
+                case 'Quit':
+                    console.log('Exit');
+                    break;
+                case 'View All Departments':
+                    db.query('SELECT * FROM department ORDER BY department.name ASC', function (err, results) {
+                        console.table('\n', results);
+                        getChoice();
+                    });                    
+                    break;
+                case 'View All Roles':
+                    db.query('SELECT role.title, role.id, department.name, role.salary FROM role JOIN department ON role.department_id = department.id ORDER BY role.title ASC', function(err, results) {
+                        console.table('\n', results);
+                        getChoice();
+                    });
+                    break;
+                case 'Add Role':
+                    addRole();
+                    break;
+                case 'Add Department':
+                    addDepartment();
+                    break;
+                case 'View All Employees':
+                    db.query('SELECT employee.first_name, employee.last_name, role.title, department.name, role.salary, employee.manager_id FROM employee JOIN role ON employee.role_id = role.id JOIN department ON role.department_id = department.id ORDER BY employee.last_name ASC', function(err, results){
+                        console.table('\n', results);
+                        getChoice();
+                    });
+                    break;
+                default:
+                    getChoice();
+                    break;
+            }
+        })
+};
 
-// Query to display all roles
-db.query('SELECT role.id, role.title, role.salary, department.name FROM role JOIN department ON role.department_id = department.id', function (err, results) {
-    console.table(results);
-});
+const addDepartment = () => {
+    inquirer
+        .prompt([
+            {
+                name: 'name',
+                type: 'input',
+                message: 'Name of the department',
+                validate: (input) => {
+                    if (input.trim() === ""){
+                        return false;
+                    }
+                    return true;
+                }
+            }
+        ])
+        .then(ans => {
+            db.query(`INSERT INTO department (name) VALUES ('${ans.name}')`, function (err, results) {
+                getChoice();
+            });
+        })
+}
 
-// Query to display all employees
-db.query('SELECT employee.first_name, employee.last_name, role.title, department.name, role.salary, employee.manager_id FROM employee JOIN role ON employee.role_id = role.id JOIN department ON role.department_id = department.id', function (err, results){
-   console.table(results); 
-});
+const addRole = () => {
+    const departments = [];
+    db.query('SELECT * FROM department', function (err, results) {
+        results.forEach(department => departments.push(department.name));
+
+        inquirer
+        .prompt([
+            {
+                name: 'department',
+                type: 'list',
+                message: 'Which department is it in?',
+                choices: departments
+            },
+            {
+                name: 'title',
+                type: 'input',
+                message: 'Title of the role?',
+                validate: (input) => {
+                    if (input.trim() === ""){
+                        return false;
+                    }
+                    return true;
+                }                
+            },
+            {
+                name: 'salary',
+                type: 'input',
+                message: 'Salary of the role?',
+                validate: (input) => {
+                    if (isNaN(input)){
+                        return 'Please enter only numbers'
+                    }
+                    return true;
+                }
+            }
+        ])
+        .then(ans => {
+            let id;
+            results.forEach(department => {
+                if(department.name === ans.department){
+                    id = parseInt(department.id);
+                }
+            })
+            let salary = parseInt(ans.salary);
+
+            db.query(`INSERT INTO role (title, salary, department_id) VALUES ('${ans.title}', ${salary}, ${id})`, function (err,results) {
+                getChoice();
+            });
+        })
+    })    
+}
 
 app.use((req, res) => res.status(404).end());
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT);
+getChoice();
