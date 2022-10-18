@@ -213,6 +213,52 @@ const addEmployee = () => {
     });    
 };
 
+const updateEmployeeRole = () => {
+    const employee = [];
+    const rolesArray = [];
+    db.query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee', function (err, people) {
+        people.forEach(person => employee.push(person.name));
+        db.query('SELECT title, id FROM role', (err, roles) => {
+            roles.forEach(role => rolesArray.push(role.title));
+            inquirer
+                .prompt([
+                    {
+                        name: 'person',
+                        type: 'list',
+                        message: 'Whose role would you like to update?',
+                        choices: employee
+                    },
+                    {
+                        name: 'title',
+                        type: 'list',
+                        message: 'What role would you like to update them to?',
+                        choices: rolesArray
+                    }
+                ])
+                .then(ans => {
+                    let employee_id;
+                    let role_id;
+                    people.forEach(person => {
+                        if(person.name === ans.person){
+                            employee_id = parseInt(person.id);
+                        }
+                    })
+
+                    roles.forEach(role => {
+                        if(role.title === ans.title){
+                            role_id = parseInt(role.id);
+                        }
+                    })
+
+                    db.query('UPDATE employee SET role_id = ? WHERE id = ?', [role_id, employee_id], (err, results) => {
+                        console.log(`Updated ${ans.person}`);
+                        getChoice();
+                    });
+                })
+        })
+    });
+};
+
 app.use((req, res) => res.status(404).end());
 app.listen(PORT);
 getChoice();
