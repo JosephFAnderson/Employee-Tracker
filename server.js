@@ -337,32 +337,38 @@ async function updateEmployeeManager(){
         })    
 }
 
-const viewByManager = () => {
-    db.query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee', (err, res) => {
-        const employees = [];
-        res.forEach(employee => employees.push(employee.name));
-        inquirer
-            .prompt([
-                {
-                    name: 'manager',
-                    type: 'list',
-                    message: 'Whose subordinates would you like to view?',
-                    choices: employees
+async function viewByManager(){
+    const employees = [];
+    const employeeRes = [];
+
+    await query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee')
+        .then (res => {
+            res.forEach(employee => {
+                employees.push(employee.name)
+                employeeRes.push(employee);
+            });
+        });
+
+    inquirer
+        .prompt([
+            {
+                name: 'manager',
+                type: 'list',
+                message: 'Whose subordinates would you like to view?',
+                choices: employees
+            }
+        ])
+        .then(async ans => {
+            let manager_id;
+            employeeRes.forEach(employee => {
+                if(employee.name === ans.manager){
+                    manager_id = employee.id;
                 }
-            ])
-            .then(ans => {
-                let manager_id;
-                res.forEach(employee => {
-                    if(employee.name === ans.manager){
-                        manager_id = employee.id;
-                    }
-                })
-                db.query('SELECT * FROM employee WHERE manager_id = ?', manager_id, (err,res) => {
-                    console.table(res);
-                    getChoice();
-                })
-            })
-    })
+            });
+            
+            await query('SELECT * FROM employee WHERE manager_id = ?', manager_id).then(res => console.table(res));                    
+            getChoice();           
+        })
 }
 
 app.use((req, res) => res.status(404).end());
