@@ -105,12 +105,17 @@ const addDepartment = () => {
         })
 };
 
-const addRole = () => {
+async function addRole(){
     const departments = [];
-    db.query('SELECT * FROM department', function (err, results) {
-        results.forEach(department => departments.push(department.name));
+    const departmentsRes = [];
+    await query('SELECT id, name FROM department').then(res => {
+        res.forEach(department => {
+            departments.push(department.name)
+            departmentsRes.push(department);
+        });
+    });
 
-        inquirer
+    inquirer
         .prompt([
             {
                 name: 'department',
@@ -141,21 +146,19 @@ const addRole = () => {
                 }
             }
         ])
-        .then(ans => {
+        .then(async ans => {
             let department_id;
-            results.forEach(department => {
+            departmentsRes.forEach(department => {
                 if(department.name === ans.department){
                     department_id = parseInt(department.id);
                 }
-            })
+            });
             let salary = parseInt(ans.salary);
 
-            db.query(`INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)`, [ans.title, salary, department_id], function (err,results) {
-                getChoice();
-            });
-        })
-    })    
-};
+            await query(`INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)`, [ans.title, salary, department_id]).then(res => console.log(`Added ${ans.title} to roles`));
+            getChoice();
+        });
+}
 
 async function addEmployee(){
     const rolesArray = [];
