@@ -2,7 +2,10 @@ const express = require('express');
 const mysql = require('mysql2');
 const inquirer = require('inquirer');
 const cTable = require('console.table');
+// const util = require('util');
 require('dotenv').config();
+
+
 
 const PORT = process.env.PORT || 4001;
 const app = express();
@@ -20,6 +23,8 @@ const db = mysql.createConnection(
     console.log('Coonected to the employee_tracker_db database.')
 );
 
+// const query = util.promisify(db.query).bind(db);
+
 const getChoice = () => {
     inquirer
         .prompt([
@@ -27,7 +32,7 @@ const getChoice = () => {
                 name: 'choice',
                 type: 'list',
                 message: 'What would you like to do?',
-                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Update Employee Manager', 'Quit']
+                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Update Employee Manager', 'View By Manager', 'Quit']
             }
         ])
         .then(ans => {
@@ -52,6 +57,9 @@ const getChoice = () => {
                         console.table('\n', results);
                         getChoice();
                     });
+                    break;
+                case 'View By Manager':
+                    viewByManager();
                     break;
                 case 'Add Department':
                     addDepartment();
@@ -216,6 +224,28 @@ const addEmployee = () => {
     });    
 };
 
+// async function updateEmployeeRole() {
+
+//     const employees = [];
+//     await query('SELECT * FROM employee', (err , res) => {
+//         res.forEach(employee => employees.push(employee.id));
+//         console.log(employees);
+//     })
+//     console.log('Its done');
+    
+//     // (async () => {
+//     //     try {
+//     //         console.log('waiting');
+//     //         await query('SELECT * FROM employee', (err, res) => {        
+//     //         console.log('done');
+//     //         });
+//     //       } finally {            
+//     //         db.end();
+//     //         console.log('its done');   
+//     //       }    
+//     // })();    
+// }
+
 const updateEmployeeRole = () => {
     const employee = [];
     const rolesArray = [];
@@ -305,6 +335,34 @@ const updateEmployeeManager = () => {
                 });
             })
     });
+}
+
+const viewByManager = () => {
+    db.query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee', (err, res) => {
+        const employees = [];
+        res.forEach(employee => employees.push(employee.name));
+        inquirer
+            .prompt([
+                {
+                    name: 'manager',
+                    type: 'list',
+                    message: 'Whose subordinates would you like to view?',
+                    choices: employees
+                }
+            ])
+            .then(ans => {
+                let manager_id;
+                res.forEach(employee => {
+                    if(employee.name === ans.manager){
+                        manager_id = employee.id;
+                    }
+                })
+                db.query('SELECT * FROM employee WHERE manager_id = ?', manager_id, (err,res) => {
+                    console.table(res);
+                    getChoice();
+                })
+            })
+    })
 }
 
 app.use((req, res) => res.status(404).end());
