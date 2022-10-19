@@ -2,7 +2,7 @@ const express = require('express');
 const mysql = require('mysql2');
 const inquirer = require('inquirer');
 const cTable = require('console.table');
-// const util = require('util');
+const util = require('util');
 require('dotenv').config();
 
 
@@ -23,7 +23,7 @@ const db = mysql.createConnection(
     console.log('Coonected to the employee_tracker_db database.')
 );
 
-// const query = util.promisify(db.query).bind(db);
+const query = util.promisify(db.query).bind(db);
 
 const getChoice = () => {
     inquirer
@@ -227,114 +227,114 @@ const addEmployee = () => {
 // async function updateEmployeeRole() {
 
 //     const employees = [];
-//     await query('SELECT * FROM employee', (err , res) => {
-//         res.forEach(employee => employees.push(employee.id));
-//         console.log(employees);
+//     await query('SELECT * FROM employee').then(res => {        
+//         console.table(`\n`, res);
 //     })
+
 //     console.log('Its done');
-    
-//     // (async () => {
-//     //     try {
-//     //         console.log('waiting');
-//     //         await query('SELECT * FROM employee', (err, res) => {        
-//     //         console.log('done');
-//     //         });
-//     //       } finally {            
-//     //         db.end();
-//     //         console.log('its done');   
-//     //       }    
-//     // })();    
 // }
 
-const updateEmployeeRole = () => {
-    const employee = [];
-    const rolesArray = [];
-    db.query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee', function (err, people) {
-        people.forEach(person => employee.push(person.name));
-        db.query('SELECT title, id FROM role', (err, roles) => {
-            roles.forEach(role => rolesArray.push(role.title));
-            inquirer
-                .prompt([
-                    {
-                        name: 'person',
-                        type: 'list',
-                        message: 'Whose role would you like to update?',
-                        choices: employee
-                    },
-                    {
-                        name: 'title',
-                        type: 'list',
-                        message: 'What role would you like to update them to?',
-                        choices: rolesArray
-                    }
-                ])
-                .then(ans => {
-                    let employee_id;
-                    let role_id;
-                    people.forEach(person => {
-                        if(person.name === ans.person){
-                            employee_id = parseInt(person.id);
-                        }
-                    })
+async function updateEmployeeRole(){
+    const employeeChoice = [];
+    const employeeRes = [];
+    const rolesChoice = [];
+    const rolesRes = [];
+    await query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee')
+        .then(res => res.forEach(person => {
+            employeeRes.push(person);
+            employeeChoice.push(person.name)
+        }));
+    
+    await query('SELECT title, id FROM role').then(res => res.forEach(role => {
+        rolesChoice.push(role.title);
+        rolesRes.push(role);
+    }));
 
-                    roles.forEach(role => {
-                        if(role.title === ans.title){
-                            role_id = parseInt(role.id);
-                        }
-                    })
-
-                    db.query('UPDATE employee SET role_id = ? WHERE id = ?', [role_id, employee_id], (err, results) => {
-                        console.log(`Updated ${ans.person}`);
-                        getChoice();
-                    });
-                })
-        })
-    });
-};
-
-const updateEmployeeManager = () => {
-    const employees = [];
-    db.query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee', function (err, people) {
-        people.forEach(person => employees.push(person.name));
-
-        inquirer
-            .prompt([
-                {
-                    name: 'employee',
-                    type: 'list',
-                    message: "Which employee's manager would you like to update?",
-                    choices: employees
-                },
-                {
-                    name: 'newManager',
-                    type: 'list',
-                    message: 'Who is their new manager? Select same employee for none.',
-                    choices: employees
+    inquirer
+        .prompt([
+            {
+                name: 'person',
+                type: 'list',
+                message: 'Whose role would you like to update?',
+                choices: employeeChoice
+            },
+            {
+                name: 'title',
+                type: 'list',
+                message: 'What role would you like to update them to?',
+                choices: rolesChoice
+            }
+        ])
+        .then(async ans => {
+            let employee_id;
+            let role_id;
+            employeeRes.forEach(person => {
+                if(person.name === ans.person){
+                    employee_id = parseInt(person.id);
                 }
-            ])
-            .then(ans => {
-                let manager_id;
-                let employee_id;
-                people.forEach(person => {                
-                    if (ans.employee == ans.newManager){
-                        manager_id = null;
-                    }else{                    
-                        if(person.name === ans.newManager){
-                            manager_id = parseInt(person.id);
-                        }                   
-                    }
-
-                    if(ans.employee === person.name){
-                        employee_id = person.id;
-                    }
-                });
-
-                db.query('UPDATE employee SET manager_id = ? WHERE id = ?', [manager_id, employee_id], (err, res) =>{
-                    console.log(`Updated ${ans.employee}'s manager.`);
-                    getChoice();
-                });
             })
-    });
+
+            rolesRes.forEach(role => {
+                if(role.title === ans.title){
+                    role_id = parseInt(role.id);
+                }
+            })
+
+            await query('UPDATE employee SET role_id = ? WHERE id = ?', [role_id, employee_id])
+                .then(ans => console.log(`Updated ${ans.person}`));
+                
+            getChoice();
+        });
+}
+
+async function updateEmployeeManager(){
+    const employees = [];
+    const employeeRes = [];
+
+    await query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee')
+        .then (res => {
+            res.forEach(person => {
+                employees.push(person.name);
+                employeeRes.push(person);
+            });
+        });
+
+    inquirer
+        .prompt([
+            {
+                name: 'employee',
+                type: 'list',
+                message: "Which employee's manager would you like to update?",
+                choices: employees
+            },
+            {
+                name: 'newManager',
+                type: 'list',
+                message: 'Who is their new manager? Select same employee for none.',
+                choices: employees
+            }
+        ])
+        .then( async ans => {
+            let manager_id;
+            let employee_id;
+            employeeRes.forEach(person => {                
+                if (ans.employee == ans.newManager){
+                    manager_id = null;
+                }else{                    
+                    if(person.name === ans.newManager){
+                        manager_id = parseInt(person.id);
+                    }                   
+                }
+
+                if(ans.employee === person.name){
+                    employee_id = person.id;
+                }
+            });
+
+            await query('UPDATE employee SET manager_id = ? WHERE id = ?', [manager_id, employee_id]).then(ans => console.log(`Updated ${ans.employee}'s manager.`))
+                
+            getChoice();
+        })    
 }
 
 const viewByManager = () => {
