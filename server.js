@@ -157,82 +157,80 @@ const addRole = () => {
     })    
 };
 
-const addEmployee = () => {
+async function addEmployee(){
     const rolesArray = [];
+    const rolesRes = [];
     const employees = ['None'];
-    db.query('SELECT * FROM employee', (err, result) => {
-        result.forEach(employee => employees.push(`${employee.first_name} ${employee.last_name}`));
-        db.query('SELECT * FROM role', function (err, res) {
-            res.forEach(role => rolesArray.push(role.title));
-            inquirer
-                .prompt([
-                    {
-                        name: 'first_name',
-                        message: 'What is their first name?',
-                        type: 'input',
-                        validate: (input) => {
-                            if(input === ""){
-                            return 'Please enter a name.'
-                        }
-                        return true;
-                        }
-                    },
-                    {
-                        name: 'last_name',
-                        message: 'What is their last name?',
-                        type: 'input',
-                        validate: (input) => {
-                            if(input === ""){
-                                return 'Please enter a name.'
-                            }
-                            return true;
-                        }
-                    },
-                    {
-                        name: 'roles',
-                        message: 'What role are they in?',
-                        type: 'list',
-                        choices: rolesArray
-                    },
-                    {
-                        name: 'manager',
-                        message: 'Who is their manager?',
-                        type: 'list',
-                        choices: employees
-                    }
-                ])
-                .then(ans => {
-                    const {first_name, last_name, roles, manager} = ans;
-                    let role_id;
-                    res.forEach(role => {
-                        if(role.title === roles){
-                            role_id = parseInt(role.id);
-                        }
-                    })
-                    let manager_id;
-                    result.forEach(employee => {
-                        if(`${employee.first_name} ${employee.last_name}` === manager){
-                            manager_id = parseInt(employee.id);
-                        }
-                    })
-                    db.query('INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)', [first_name, last_name, role_id, manager_id], (err, results) => {
-                        console.log(`Added ${first_name} ${last_name} to database`);
-                        getChoice();
-                    })
-                })
+    const employeesRes = [];
+    await query('SELECT id, CONCAT(first_name, " ", last_name) AS name FROM employee').then(res => {
+        res.forEach(employee => {
+            employees.push(employee.name)
+            employeesRes.push(employee);
         });
-    });    
+    });
+    await query('SELECT id, title FROM role').then(res => {
+            res.forEach(role => {
+                rolesArray.push(role.title)
+                rolesRes.push(role);
+            });
+    });
+            
+    inquirer
+        .prompt([
+            {
+                name: 'first_name',
+                message: 'What is their first name?',
+                type: 'input',
+                validate: (input) => {
+                    if(input === ""){
+                        return 'Please enter a name.'
+                    }
+                    return true;
+                    }
+            },
+            {
+                name: 'last_name',
+                message: 'What is their last name?',
+                type: 'input',
+                validate: (input) => {
+                    if(input === ""){
+                        return 'Please enter a name.'
+                    }
+                    return true;
+                }
+            },
+            {
+                name: 'roles',
+                message: 'What role are they in?',
+                type: 'list',
+                choices: rolesArray
+            },
+            {
+                name: 'manager',
+                message: 'Who is their manager?',
+                type: 'list',
+                choices: employees
+            }
+        ])
+        .then(async ans => {
+            const {first_name, last_name, roles, manager} = ans;
+            let role_id;
+            rolesRes.forEach(role => {
+                if(role.title === roles){
+                    role_id = parseInt(role.id);
+                }
+            })
+            let manager_id;
+            employeesRes.forEach(employee => {
+                if(employee.name === manager){
+                    manager_id = parseInt(employee.id);
+                }
+            });
+            await query('INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)', [first_name, last_name, role_id, manager_id]).then( res => console.log(`Added ${first_name} ${last_name} to database`));
+                        
+            getChoice();
+        });    
 };
-
-// async function updateEmployeeRole() {
-
-//     const employees = [];
-//     await query('SELECT * FROM employee').then(res => {        
-//         console.table(`\n`, res);
-//     })
-
-//     console.log('Its done');
-// }
 
 async function updateEmployeeRole(){
     const employeeChoice = [];
@@ -365,7 +363,7 @@ async function viewByManager(){
                     manager_id = employee.id;
                 }
             });
-            
+
             await query('SELECT * FROM employee WHERE manager_id = ?', manager_id).then(res => console.table(res));                    
             getChoice();           
         })
