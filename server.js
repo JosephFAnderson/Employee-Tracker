@@ -27,7 +27,7 @@ const getChoice = () => {
                 name: 'choice',
                 type: 'list',
                 message: 'What would you like to do?',
-                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Quit']
+                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Update Employee Manager', 'Quit']
             }
         ])
         .then(ans => {
@@ -64,7 +64,10 @@ const getChoice = () => {
                     break;
                 case 'Update Employee Role':
                     updateEmployeeRole();
-                    break;                
+                    break;  
+                case 'Update Employee Manager':
+                    updateEmployeeManager();
+                    break;              
                 default:
                     getChoice();
                     break;
@@ -258,6 +261,51 @@ const updateEmployeeRole = () => {
         })
     });
 };
+
+const updateEmployeeManager = () => {
+    const employees = [];
+    db.query('SELECT id, CONCAT(employee.first_name, " ", employee.last_name) AS name FROM employee', function (err, people) {
+        people.forEach(person => employees.push(person.name));
+
+        inquirer
+            .prompt([
+                {
+                    name: 'employee',
+                    type: 'list',
+                    message: "Which employee's manager would you like to update?",
+                    choices: employees
+                },
+                {
+                    name: 'newManager',
+                    type: 'list',
+                    message: 'Who is their new manager? Select same employee for none.',
+                    choices: employees
+                }
+            ])
+            .then(ans => {
+                let manager_id;
+                let employee_id;
+                people.forEach(person => {                
+                    if (ans.employee == ans.newManager){
+                        manager_id = null;
+                    }else{                    
+                        if(person.name === ans.newManager){
+                            manager_id = parseInt(person.id);
+                        }                   
+                    }
+
+                    if(ans.employee === person.name){
+                        employee_id = person.id;
+                    }
+                });
+
+                db.query('UPDATE employee SET manager_id = ? WHERE id = ?', [manager_id, employee_id], (err, res) =>{
+                    console.log(`Updated ${ans.employee}'s manager.`);
+                    getChoice();
+                });
+            })
+    });
+}
 
 app.use((req, res) => res.status(404).end());
 app.listen(PORT);
