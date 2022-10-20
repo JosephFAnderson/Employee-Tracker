@@ -25,7 +25,7 @@ const getChoice = () => {
                 name: 'choice',
                 type: 'list',
                 message: 'What would you like to do?',
-                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Update Employee Manager', 'View By Manager', 'Quit']
+                choices: ['View All Departments', 'View All Roles', 'View All Employees', 'Add Department', 'Add Role', 'Add Employee', 'Update Employee Role', 'Update Employee Manager', 'View By Manager', 'View Department Cost','Quit']
             }
         ])
         .then(ans => {
@@ -69,8 +69,8 @@ const getChoice = () => {
                 case 'Update Employee Manager':
                     updateEmployeeManager();
                     break;              
-                default:
-                    getChoice();
+                case 'View Department Cost':
+                    sumDepartment();
                     break;
             }
         })
@@ -233,7 +233,7 @@ async function addEmployee(){
                         
             getChoice();
         });    
-};
+}
 
 // Handles updating employee role
 async function updateEmployeeRole(){
@@ -372,6 +372,40 @@ async function viewByManager(){
 
             await query('SELECT * FROM employee WHERE manager_id = ?', manager_id).then(res => console.table(`\n`, res));                    
             getChoice();           
+        })
+}
+
+// Sum the cost of each department
+async function sumDepartment(){
+    const departments = [];
+    const departmentsRes = [];
+    await query("SELECT * FROM department").then(res => {
+        res.forEach(department => {
+            departments.push(department.name);
+            departmentsRes.push(department);
+        })
+    })
+
+    inquirer
+        .prompt([
+            {
+                name: 'department',
+                type: 'list',
+                message: "Which department's cost would you like to view?",
+                choices: departments
+            }
+        ])
+        .then(async ans => {
+            let department_id;
+            departmentsRes.forEach(department => {
+                if(department.name === ans.department){
+                    department_id = department.id;
+                }
+            })
+
+            await query('SELECT SUM(role.salary) AS total_cost FROM employee INNER JOIN role ON employee.role_id = role.id WHERE role.department_id = ? ', department_id)
+                .then(res => console.table(res));
+            getChoice();
         })
 }
 
